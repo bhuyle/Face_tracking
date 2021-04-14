@@ -44,7 +44,6 @@ class Tracker:
         self.max_iou_distance = cfg.DEEPSORT.MAX_IOU_DISTANCE
         self.max_age = cfg.DEEPSORT.MAX_AGE
         self.n_init = cfg.DEEPSORT.N_INIT
-
         self.kf = kalman_filter.KalmanFilter(self.cfg)
         self.tracks = []
         self._next_id = 1
@@ -69,10 +68,12 @@ class Tracker:
             A list of detections at the current time step.
 
         """
+        print('self._next_id',self._next_id)
         # Run matching cascade.
         matches, unmatched_tracks, unmatched_detections = \
             self._match(detections)
-
+        
+        print(matches,unmatched_tracks,unmatched_detections)
         # Update track set.
         for track_idx, detection_idx in matches:
             self.tracks[track_idx].update(

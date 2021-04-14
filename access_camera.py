@@ -17,6 +17,8 @@ from libs import Tracker
 from utils import generate_detections as gdet
 from libs import Detection as ddet
 from collections import deque
+import os ; os.environ['HDF5_DISABLE_VERSION_CHECK']='2'
+
 
 PROTOTXT = 'models/dnn/deploy.prototxt.txt'
 MODEL = 'models/dnn/res10_300x300_ssd_iter_140000.caffemodel'
@@ -54,12 +56,16 @@ def main(tracking=False):
         ################ PROCESS ##########################
         # detect
         list_face_bbox, list_score, list_classes = detect_face_ssd(frame, PROTOTXT, MODEL)
+        for index in list_face_bbox:
+            if index[2] > frame.shape[1]-10:
+                print('index fail',index,frame.shape[1])
+                index[2] = frame.shape[1]-20
         # tracking
         if tracking:
+ 
             features = encoder(frame, list_face_bbox)
             detections = [Detection(bbox, 1.0, cls, feature) for bbox, _, cls, feature in
                             zip(list_face_bbox, list_score, list_classes, features)]
-            
             # run nms
             # Run non-maxima suppression.
             boxes = np.array([d.tlwh for d in detections])
@@ -68,18 +74,32 @@ def main(tracking=False):
             indices = preprocessing.non_max_suppression(
                 boxes, cfg.DEEPSORT.NMS_MAX_OVERLAP, scores)
             detections = [detections[i] for i in indices]
+            if len(list_face_bbox) != 0:
+                tracker.predict()
+                tracker.update(detections)
+            else:
+                tracker.predict()
 
-            tracker.predict()
-            tracker.update(detections)
-
+                # tracker.update(detections)
+            id = []
+            list_bbox = []
             for track in tracker.tracks:
                 if not track.is_confirmed() or track.time_since_update > 1:
                     continue
-
-                bbox = track.mean[:4].copy()
-                print("track id: ", track.track_id)
+                # bbox = track.mean[:4].copy()
+                bbox = track.to_tlbr()
+                id.append(track.track_id)
+                list_bbox.append(bbox)
                 # draw track
-                frame = draw_bbox_maxmin(frame, list_face_bbox, True, track.track_id)
+                # frame = draw_bbox_maxmin(frame, list_face_bbox, True, track.track_id)
+            # print(list_bbox,list_face_bbox)
+            list_bbox = np.array(list_bbox).astype('int32')
+            print(id)
+            for i,box in enumerate(list_bbox):
+                if id == [] or len(id) != len(list_bbox):
+                    break
+                frame = draw_bbox_maxmin(frame, box, True, id[i])
+
         
         else:
             for face_bbox, face_score in zip(list_face_bbox, list_score):
